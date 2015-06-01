@@ -1,0 +1,31 @@
+body
+{
+  font-family: Helvetica, sans-serif;
+  font-size: small;
+}
+
+h1
+{
+  font-size: large;
+}
+
+.site
+{
+  margin-left: auto;
+  margin-right: auto;
+  width: 720px;
+}
+
+.title a
+{
+  color: #000000;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.footer
+{
+  border-top: 1px solid #d3d3d3;
+  line-height: 1.5;
+  padding-top: 5px;
+}
