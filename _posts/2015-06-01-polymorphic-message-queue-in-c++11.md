@@ -3,7 +3,7 @@ layout: post
 title: Polymorphic Message Queue in C++11
 ---
 
-Recently I was working on a C++ hobby project where I needed a simple, lightweight way to pass messages between threads. The message passing system would need to fulfill two requirements:
+Recently I was working on a C++ project where I needed a simple, lightweight way to pass messages between threads. The message passing system would need to fulfill two requirements:
 
 * The threads would need to pass different kinds of data between them, so the messaging system should be able to support messages with any type of payload.
 * The payload data passed between threads could be relatively large, so it shouldn't be copied around. Only it's ownership should be passed from sender to the queue, and from the queue to the receiver.
