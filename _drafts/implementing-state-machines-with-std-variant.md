@@ -30,4 +30,60 @@ struct Connection {
 };
 {% endhighlight %}
 
-The idea is that `m_lastPingTime` is only needed in `Connected` state, `m_disconnectedTime` only in `ConnectionInterrupted` state etc.
+The idea is that `m_lastPingTime` is only needed in `Connected` state, `m_disconnectedTime` only in `ConnectionInterrupted` state, and so on.
+
+The talk didn't go further into details on how to implement the full state machine logic with state transitions, transition actions etc. using this pattern. In this post, I explore a possible implementation.
+
+### Representing the Transitions
+
+A state transition is made simply by assigning a new value to the state variant, `m_connection` in the case of our example. For example, the `Connection` class could have a function
+
+{% highlight c++ %}
+void disconnected()
+{
+    m_connection = Disconnected();
+}
+{% endhighlight %}
+
+that would be called when a disconnection event is detected. This is the simplest transition implementation, as we always move to the same state as a result of the event, `Disconnected` in this case, regardless of the state the connection is when the event occurs.
+
+A more interesting situation arises when the transition invoked by the event depends on the current state. This requires us to inspect which alternative the variant currently holds. A natural and safe way to do this is to use [`std::visit`](http://en.cppreference.com/w/cpp/utility/variant/visit). The visitor passed to `std::visit` is required to be callable with all the alternative types the variant can hold, otherwise the program is ill-formed. This property gives us a compile-time check that we handle all the source states in our transition visitors.
+
+The visitor can also return a value. A useful value to return from a transition visitor is the target state of the transition. As an example, consider a visitor handling a connection interrupted event:
+
+{% highlight c++ %}
+using State = std::variant<
+    Disconnected, Connecting, Connected, ConnectionInterrupted>;
+
+struct Interruption
+{
+    State operator()(const Disconnected&){ return Disconnected(); }
+    State operator()(const Connecting&){ return Disconnected(); }
+    State operator()(const Connected&)
+    {
+        return ConnectionInterrupted{std::chrono::system_clock::now(), 5000};
+    }
+    State operator()(const ConnectionInterrupted& s){ return s; }
+};
+{% endhighlight %}
+
+If we get the interruption event when the connection hasn't been established yet (`Disconnected` or `Connecting` state), we move to (or stay in) the `Disconnected` state. From `Connected` state we move to `ConnectionInterrupted` state. If we are already in the `ConnectionInterrupted` state, we stay there.
+
+The visitor can be used like this:
+
+{% highlight c++ %}
+void interrupted()
+{
+    m_connection = std::visit(Interruption(), m_connection);
+}
+{% endhighlight %}
+
+### Adding Transition Actions
+
+<!--https://godbolt.org/g/fgd9tk-->
+
+<!-- ### The State Machine
+
+As an example I'll implement a state machine for _automatic volume control_. Consider some kind of entertainment system playing music, with a requirement to automatically limit the music volume below some predetermined threshold during certain circumstances. When the situation requiring the volume limiting is over, the volume used before the automatic adjustment should be restored, unless the volume was manually adjusted during the situation.
+
+### The States -->
