@@ -3,7 +3,7 @@ layout: post
 title: Implementing State Machines with std::variant
 ---
 
-C++17 brings us [`std::variant`](http://en.cppreference.com/w/cpp/utility/variant) that will enable new kinds of type-safe programming patterns by providing the ability to construct [sum types](https://en.wikipedia.org/wiki/Algebraic_data_type). One interesting potential use of `std::variant` was presented by [Ben Deane](https://twitter.com/ben_deane) in his 2016 CppCon talk ["Using Types Effectively"](https://www.youtube.com/watch?v=ojZbFIQSdl8). If you haven't yet, you should go and watch the talk. It presents many clever ideas on how to use the C++ type system to your advantage.
+C++17 brings us [`std::variant`](http://en.cppreference.com/w/cpp/utility/variant) that will enable new kinds of type-safe programming patterns by providing the ability to construct [sum types](https://en.wikipedia.org/wiki/Algebraic_data_type). One interesting potential use of `std::variant` was presented by Ben Deane in his 2016 CppCon talk ["Using Types Effectively"](https://www.youtube.com/watch?v=ojZbFIQSdl8). If you haven't yet, you should go and watch the talk. It presents many clever ideas on how to use the C++ type system to your advantage.
 
 The idea presented in the talk was to use `std::variant` to represent state machines. The main motivation was to make illegal states unrepresentable by embedding the variables only needed in one state inside a structure representing the state. All the state structures are then combined in a `std::variant` object to represent the current state. The example used in the talk showed the structure declarations for a state machine modeling some kind of server connection:
 
@@ -55,8 +55,7 @@ The visitor can also return a value. A useful value to return from a transition 
 using State = std::variant<
     Disconnected, Connecting, Connected, ConnectionInterrupted>;
 
-struct Interruption
-{
+struct InterruptedEvent {
     State operator()(const Disconnected&){ return Disconnected(); }
     State operator()(const Connecting&){ return Disconnected(); }
     State operator()(const Connected&)
@@ -74,16 +73,41 @@ The visitor can be used like this:
 {% highlight c++ %}
 void interrupted()
 {
-    m_connection = std::visit(Interruption(), m_connection);
+    m_connection = std::visit(InterruptedEvent(), m_connection);
 }
 {% endhighlight %}
 
 ### Adding Transition Actions
 
+What if we'd like to execute some action in the `Connection` class when a transition is initiated in the visitor, for example, notify observers of the `Connection` about connection interruption? The visitor needs access to the `Connection` object. We can "capture" the object to the visitor:
+
+{% highlight c++ %}
+struct InterruptedEvent {
+    InterruptedEvent(Connection& c) : m_c(c) {}
+    State operator()(const Disconnected&){ return Disconnected(); }
+    State operator()(const Connecting&){ return Disconnected(); }
+    State operator()(const Connected&)
+    {
+        const auto now = std::chrono::system_clock::now();
+        m_c.notifyInterrupted(now);
+        return ConnectionInterrupted{now, 5000};
+    }
+    State operator()(const ConnectionInterrupted& s){ return s; }
+
+private:
+    Connection& m_c;
+};
+{% endhighlight %}
+
+and pass the reference when calling `std::visit`:
+
+{% highlight c++ %}
+void interrupted()
+{
+    m_connection = std::visit(InterruptedEvent(*this), m_connection);
+}
+{% endhighlight %}
+
+See the full code [here](https://gist.github.com/khuttun/ec546b2b23cfc37124f2395c9a2a8014).
+
 <!--https://godbolt.org/g/fgd9tk-->
-
-<!-- ### The State Machine
-
-As an example I'll implement a state machine for _automatic volume control_. Consider some kind of entertainment system playing music, with a requirement to automatically limit the music volume below some predetermined threshold during certain circumstances. When the situation requiring the volume limiting is over, the volume used before the automatic adjustment should be restored, unless the volume was manually adjusted during the situation.
-
-### The States -->
