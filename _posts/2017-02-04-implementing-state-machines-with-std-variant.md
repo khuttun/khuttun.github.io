@@ -109,5 +109,3 @@ void interrupted()
 {% endhighlight %}
 
 See the full code [here](https://gist.github.com/khuttun/ec546b2b23cfc37124f2395c9a2a8014).
-
-<!--https://godbolt.org/g/fgd9tk-->
